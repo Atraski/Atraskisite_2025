@@ -1,0 +1,91 @@
+.Timeline2023{
+    height: 100vh;
+    width:100vw;
+    
+}
+.bg-img{
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    
+}
+
+.left-text h1{
+    position: absolute;
+    color: white;
+    padding-left: 22vh;
+    padding-top: 35vh;
+    font-size: 10.0rem;
+    font-weight: 600;
+    
+}
+.right-text{
+    display: flex;
+    align-items: start;
+}
+
+.right-text h3{
+     position: absolute;
+     color: white;
+     padding-left: 103vh;
+     padding-top: 18vh;
+     font-size: 2.5rem;
+     padding-right: 10vh;
+}
+.right-text p{
+     position: absolute;
+     color: white;
+     padding-left: 103vh;
+     padding-top: 40vh;
+     font-size: 1.0rem;
+     padding-right: 10vh;
+}
+
+@media (max-width: 768px) {
+  .Timeline2023 {
+    height: 90vh;
+    width: 100%;
+    position: relative;
+    padding: 0rem;
+    box-sizing: border-box;
+    margin-top: 4px;
+  }
+  .bg-img{
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    z-index: -1;
+  }
+.left-text{
+    padding-top: 0px;
+}
+.left-text h1{
+    position: static;
+    font-size: 4rem;
+    font-weight: bold;
+    color: white;
+    margin:0px 0px 0px 0px ;
+    padding: 40px 0px 40px 0px;
+    display: flex;
+    justify-content: center;
+  }
+   .right-text {
+    padding:0px;
+  }
+  .right-text h3{
+    position: static; 
+    font-size:2.0rem;
+    color: white;
+    margin: 0px 0px 0px 0px; 
+    padding: 90px 40px 40px 10px;
+    font-weight: 600;
+    display: flex;
+    justify-content: center;
+  }
+  .right-text p{
+    display: none;
+  }
+}

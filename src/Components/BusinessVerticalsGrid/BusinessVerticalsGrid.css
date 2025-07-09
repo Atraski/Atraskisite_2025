@@ -1,0 +1,171 @@
+.businessverticals-section {
+  width: 100%;
+  background-color: #f4f4f4;
+  padding: 3rem 2rem;
+  box-sizing: border-box;
+}
+
+.main-div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  flex: 1 1 60%;
+  min-width: 300px;
+}
+
+.businessverticals-card {
+  background-color: white;
+  border-radius: 10px;
+  padding: 1.2rem;
+  text-align: center;
+  box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+}
+
+.businessverticals-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0px 6px 15px rgba(0,0,0,0.15);
+}
+
+.businessverticals-card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.businessverticals-card img {
+  width: 100%;
+  max-width: 200px;
+  max-height: 116.2px;
+  /* height: auto; */
+  margin: 0 auto 1rem;
+  object-fit: contain;
+}
+
+.businessverticals-card a {
+  display: inline-block;
+  padding-top: 1.0rem;
+  /* margin-left: 17rem; */
+  font-size: 0.9rem;
+  color: #000;
+  text-decoration: none;
+}
+
+.businessverticals-card a:hover {
+  text-decoration: underline;
+}
+
+.card-news {
+  background-color: white;
+  padding: 1rem;
+  border-radius: 10px;
+  box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+  max-width: 300px;
+  width: 100%;
+  height: 76vh;
+}
+
+.card-news .tag {
+  color: #2957ff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.card-news img {
+  width: 100%;
+  object-fit: cover;
+  margin: 1rem 0;
+}
+
+.card-news h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #003366;
+}
+
+.card-news p {
+  font-size: 0.85rem;
+  color: #222;
+  border-left: 1px solid #535252;
+  padding-left: 3vh;
+}
+
+/* ✅ Responsive Design */
+@media (max-width: 1024px) {
+  .main-div {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .cards {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .card-news {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .main-div {
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 1rem;
+  }
+
+  .businessverticals-card {
+    padding: 1.2rem;
+    width: 100%;
+  }
+
+  .businessverticals-card h3 {
+    font-size: 1rem;
+  }
+
+  .businessverticals-card img {
+    max-width: 150px;
+    max-height: 100px;
+  }
+
+  .businessverticals-card a {
+    font-size: 0.85rem;
+  }
+
+  .card-news {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .card-news img {
+    max-height: 200px;
+    object-fit: cover;
+  }
+
+  .card-news h4 {
+    font-size: 1rem;
+  }
+
+  .card-news p {
+    font-size: 0.9rem;
+    padding-left: 1rem;
+  }
+}
+

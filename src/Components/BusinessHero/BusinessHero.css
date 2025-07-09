@@ -1,0 +1,58 @@
+.businesshero-section{
+    height: 100vh;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+.businesshero-image{
+    position:absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.businesshero-content{
+    position: relative;
+    padding-top: 60vh;
+    padding-left: 26vh;
+}
+.businesshero-content h2{
+    color: white;
+  font-size: 2.0rem;
+  font-weight: 600;
+}
+.businesshero-content p{
+    color: white;
+  padding-left: 3vh;
+  padding-top: 1.5vh;
+  border-left: 2px solid #dbdbdb;
+}
+
+@media (max-width: 768px) {
+  .businesshero-section {
+    height: 100vh; /* Keep full height for overlay effect */
+  }
+
+  .businesshero-image {
+    height: 100%;
+  }
+
+  .businesshero-content {
+    padding-top: 55vh; /* Maintain relative position over image */
+    padding-left: 2rem; /* Less left space on small screens */
+    padding-right: 2rem;
+  }
+
+  .businesshero-content h2 {
+    font-size: 1.2rem;
+    text-align: left;
+  }
+
+  .businesshero-content p {
+    font-size: 0.85rem;
+    padding-left: 1rem;
+    padding-right: 0.5rem;
+    border-left: 2px solid #dbdbdb;
+    line-height: 1.5;
+  }
+}
+

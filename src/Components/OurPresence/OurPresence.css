@@ -1,0 +1,243 @@
+.news-section{
+    background-color: #f1eeee;
+    height: 100%;
+    width: 100vw;
+    position: relative;
+    padding:2rem 10rem 6rem 10rem;
+}
+.today h2{
+    font-size: 1.5rem;
+      font-weight: 500;
+      margin-bottom: 1rem;
+      color: #111;
+}
+.today p{
+        border-left: 2px solid #5a5959;
+        padding-left: 1rem;
+        font-size: 0.9rem;
+        line-height: 1.8;
+        color: #333;
+}
+
+.ifmt-section{
+    background-color: white;
+    display: flex;
+    margin-bottom: 2rem;
+    max-width: 80vw;
+    max-height: 30vh;
+    margin-top: 2rem;
+}
+.ifmt-image img{
+    height: 30vh;
+    width: 40vw;
+}
+.ifmt-text{
+    padding-left: 2rem;
+}
+
+.ifmt-text a{
+    color: blue;
+    display: flex;
+    margin-bottom:20px;
+    margin-top: 20px;
+}
+.ifmt-text p{
+    color: black;
+    border-left: 2px solid gray;
+    padding-left: 1rem;
+}
+.card-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap:15px;
+  margin-top: 25px;
+}
+
+/* ===== Shared Card Style ===== */
+.joinus-card {
+  flex: 1 1 30%;
+  background: #fff;
+  padding: 2px;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.baidyanath-card {
+  flex: 1 1 60%;
+  background: #fff;
+  padding: 2px;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.joinus-card:hover,
+.baidyanath-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== JOIN US Styling ===== */
+.joinus-card h2 {
+  color: #0b3ee3;
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+
+.joinus-card p {
+  font-size: 14px;
+  color: #333;
+  padding-left: 15px;
+  border-left: 2px solid #000;
+  margin: 0;
+}
+
+/* ===== Baidyanath Styling ===== */
+.baidyanath-card .tags {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tag {
+  background: #ffd100;
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: bold;
+  color: #000;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+/* ===== Headline and Logo ===== */
+.headline-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.headline h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.headline p {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.logo img {
+  width: 80px;
+  height: auto;
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 768px) {
+  .news-section {
+    padding: 2rem 1.2rem;
+  }
+
+  .today h2 {
+    font-size: 1.4rem;
+    margin-bottom: 0.5rem;
+    text-align: left;
+  }
+
+  .today p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    border-left: 2px solid #5a5959;
+    padding-left: 1rem;
+  }
+
+  .ifmt-section {
+    flex-direction: column;
+    max-width: 100%;
+    max-height: unset;
+    margin-bottom: 2rem;
+  }
+
+  .ifmt-image img {
+    width: 100%;
+    height: auto;
+  }
+
+  .ifmt-text {
+    padding: 1rem;
+  }
+
+  .ifmt-text a {
+    font-size: 1rem;
+  }
+
+  .ifmt-text p {
+    font-size: 0.9rem;
+    border-left: 2px solid gray;
+    padding-left: 1rem;
+  }
+
+  .card-row {
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  .joinus-card,
+  .baidyanath-card {
+    flex: 1 1 100%;
+    padding: 1rem;
+  }
+
+  .joinus-card h2 {
+    font-size: 1.3rem;
+  }
+
+  .joinus-card p {
+    font-size: 0.95rem;
+  }
+
+  .baidyanath-card .tags {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .tag {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+  }
+
+  .headline-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .headline h3 {
+    font-size: 1.1rem;
+  }
+
+  .headline p {
+    font-size: 0.9rem;
+  }
+
+  .logo img {
+    width: 60px;
+    margin-top: 0.5rem;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+

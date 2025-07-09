@@ -1,0 +1,80 @@
+.ourbelief {
+  background-color: #f3f3f3;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+  padding-top:4rem ;
+  padding-bottom: 6rem;  
+  padding-left: 10rem;
+}
+.ourbelief-section { 
+    margin-bottom: 2rem;
+}
+.ourbelief-section h2 { 
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      color: #111;
+      
+}
+
+.ourbelief-section p { 
+        border-left: 2px solid #5a5959;
+        padding-left: 1rem;
+        font-size: 0.9rem;
+        line-height: 1.8;
+        color: #333;
+      
+}
+
+
+.ourvision-section {
+  margin-bottom: 2rem;
+  max-width: 900px;
+}
+
+.ourvision-section h2 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: #111;
+  position: relative;
+}
+
+.ourvision-section p {
+  border-left: 2px solid #5a5959;
+  padding-left: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: #333;
+}
+
+
+
+@media (max-width: 768px) {
+  .ourbelief {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+    height: auto;
+  }
+
+  .ourbelief-section h2,
+  .ourvision-section h2 {
+    font-size: 1.2rem;
+    text-align: left;
+  }
+
+  .ourbelief-section p,
+  .ourvision-section p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    padding-left: 1rem;
+  }
+
+  .ourvision-section {
+    max-width: 100%;
+  }
+}
+
