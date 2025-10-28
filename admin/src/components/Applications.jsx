@@ -25,12 +25,14 @@ export default function Applications() {
   const [selectedJob, setSelectedJob] = useState("All");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [authError, setAuthError] = useState(false); // NEW: unauthorized flag
   const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState(null);
 
   const fetchData = async () => {
     setLoading(true);
     setErr("");
+    setAuthError(false);
     try {
       const { data } = await api.get("/api/applications");
       const clean = (Array.isArray(data) ? data : []).map((a) => ({
@@ -50,7 +52,13 @@ export default function Applications() {
       setJobList(["All", ...titles]);
       setPage(1);
     } catch (e) {
-      setErr(e?.response?.data?.error || "Failed to load");
+      // Detect 401
+      if (e?.response?.status === 401) {
+        setAuthError(true);
+        setErr("You’re not logged in.");
+      } else {
+        setErr(e?.response?.data?.error || "Failed to load");
+      }
       setApps([]);
     } finally {
       setLoading(false);
@@ -59,6 +67,7 @@ export default function Applications() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -86,133 +95,161 @@ export default function Applications() {
     <div className="ap-root">
       <h2 className="ap-title">Job Applications</h2>
 
-      {err && (
-        <div className="ap-alert">
-          {err === "Unauthorized" ? "Unauthorized (401). Please login again." : err}
+      {/* Unauthorized banner with Login CTA */}
+      {authError && (
+        <div className="ap-alert ap-alert--warn">
+          <div className="ap-alert__text">
+            Unauthorized (401). Please log in to access the admin panel.
+          </div>
+          <button
+            className="ap-btn ap-btn--primary"
+            onClick={() => {
+              const after = encodeURIComponent(window.location.pathname + window.location.search);
+              window.location.href = `/login?next=${after}`;
+            }}
+          >
+            Go to Login
+          </button>
         </div>
       )}
 
-      <div className="ap-toolbar">
-        <label className="ap-label">Filter by Job Title:</label>
-        <select
-          className="ap-select"
-          value={selectedJob}
-          onChange={(e) => {
-            setSelectedJob(e.target.value);
-            setPage(1);
-          }}
-        >
-          {jobList.map((j) => (
-            <option key={j} value={j}>{j}</option>
-          ))}
-        </select>
-
-        <button className="ap-btn" onClick={fetchData}>Refresh</button>
-
-        <div className="ap-legend">
-          <span className="legendItem"><span className="dot dot--green" />Approved</span>
-          <span className="legendItem"><span className="dot dot--red" />Rejected</span>
-          <span className="legendItem"><span className="dot dot--yellow" />Pending</span>
+      {/* Other errors (non-401) */}
+      {!authError && err && (
+        <div className="ap-alert">
+          {err === "Unauthorized"
+            ? "Unauthorized (401). Please login again."
+            : err}
         </div>
-      </div>
+      )}
 
-      <div className="ap-tableWrap">
-        <table className="ap-table">
-          {/* Fixed widths */}
-          <colgroup>
-            <col style={{ width: "110px" }} />
-            <col style={{ width: "220px" }} />
-            <col style={{ width: "280px" }} />
-            <col style={{ width: "140px" }} />
-            <col style={{ width: "140px" }} />
-            <col style={{ width: "220px" }} />
-            <col />
-            <col style={{ width: "130px" }} />
-            <col style={{ width: "130px" }} />
-            <col style={{ width: "160px" }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Contact</th>
-              <th>WhatsApp</th>
-              <th>Job Title</th>
-              <th>Message</th>
-              <th>Resume</th>
-              <th>Applied On</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="10" className="ap-empty">Loading…</td></tr>
-            ) : current.length === 0 ? (
-              <tr><td colSpan="10" className="ap-empty">No applications found</td></tr>
-            ) : (
-              current.map((app) => {
-                const meta = STATUS_META[app.status] || STATUS_META.pending;
-                const resumeHref = getResumeHref(app.resumeUrl);
+      {/* Top toolbar (hidden when unauthorized) */}
+      {!authError && (
+        <div className="ap-toolbar">
+          <label className="ap-label">Filter by Job Title:</label>
+          <select
+            className="ap-select"
+            value={selectedJob}
+            onChange={(e) => {
+              setSelectedJob(e.target.value);
+              setPage(1);
+            }}
+          >
+            {jobList.map((j) => (
+              <option key={j} value={j}>{j}</option>
+            ))}
+          </select>
 
-                return (
-                  <tr key={app._id}>
-                    <td>
-                      <div className={meta.pill}>
-                        <span className={meta.dot} />
-                        <span className="pill__text">{meta.label}</span>
-                      </div>
-                    </td>
-                    <td className="td-text">{app.name || "—"}</td>
-                    <td className="td-text">{app.email || "—"}</td>
-                    <td className="td-text">{app.contactNumber || "—"}</td>
-                    <td className="td-text">{app.whatsappNumber || "—"}</td>
-                    <td className="td-text">{app.jobTitle || "General"}</td>
-                    <td className="td-text">{app.message || "—"}</td>
-                    <td className="td-text">
-                      {resumeHref ? (
-                        <a className="ap-link" href={resumeHref} target="_blank" rel="noreferrer">
-                          Download
-                        </a>
-                      ) : "—"}
-                    </td>
-                    <td className="td-text">
-                      {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "—"}
-                    </td>
-                    <td>
-                      <div className="actions">
-                        <button
-                          type="button"
-                          className={`btn-dot btn-dot--green ${busyId === app._id ? "is-busy" : ""}`}
-                          aria-label="Approve"
-                          onClick={() => setStatus(app._id, "approved")}
-                          disabled={busyId === app._id}
-                        />
-                        <button
-                          type="button"
-                          className={`btn-dot btn-dot--red ${busyId === app._id ? "is-busy" : ""}`}
-                          aria-label="Reject"
-                          onClick={() => setStatus(app._id, "rejected")}
-                          disabled={busyId === app._id}
-                        />
-                        <button
-                          type="button"
-                          className={`btn-dot btn-dot--yellow ${busyId === app._id ? "is-busy" : ""}`}
-                          aria-label="Set Pending"
-                          onClick={() => setStatus(app._id, "pending")}
-                          disabled={busyId === app._id}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+          <button className="ap-btn" onClick={fetchData}>Refresh</button>
 
-      {!loading && filtered.length > 0 && (
+          <div className="ap-legend">
+            <span className="legendItem"><span className="dot dot--green" />Approved</span>
+            <span className="legendItem"><span className="dot dot--red" />Rejected</span>
+            <span className="legendItem"><span className="dot dot--yellow" />Pending</span>
+          </div>
+        </div>
+      )}
+
+      {/* Table or states */}
+      {!authError && (
+        <div className="ap-tableWrap">
+          <table className="ap-table">
+            {/* Fixed widths */}
+            <colgroup>
+              <col style={{ width: "110px" }} />
+              <col style={{ width: "220px" }} />
+              <col style={{ width: "280px" }} />
+              <col style={{ width: "140px" }} />
+              <col style={{ width: "140px" }} />
+              <col style={{ width: "220px" }} />
+              <col />
+              <col style={{ width: "130px" }} />
+              <col style={{ width: "130px" }} />
+              <col style={{ width: "160px" }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Contact</th>
+                <th>WhatsApp</th>
+                <th>Job Title</th>
+                <th>Message</th>
+                <th>Resume</th>
+                <th>Applied On</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan="10" className="ap-empty">Loading…</td></tr>
+              ) : current.length === 0 ? (
+                <tr><td colSpan="10" className="ap-empty">No applications found</td></tr>
+              ) : (
+                current.map((app) => {
+                  const meta = STATUS_META[app.status] || STATUS_META.pending;
+                  const resumeHref = getResumeHref(app.resumeUrl);
+
+                  return (
+                    <tr key={app._id}>
+                      <td>
+                        <div className={meta.pill}>
+                          <span className={meta.dot} />
+                          <span className="pill__text">{meta.label}</span>
+                        </div>
+                      </td>
+                      <td className="td-text">{app.name || "—"}</td>
+                      <td className="td-text">{app.email || "—"}</td>
+                      <td className="td-text">{app.contactNumber || "—"}</td>
+                      <td className="td-text">{app.whatsappNumber || "—"}</td>
+                      <td className="td-text">{app.jobTitle || "General"}</td>
+                      <td className="td-text">{app.message || "—"}</td>
+                      <td className="td-text">
+                        {resumeHref ? (
+                          <a className="ap-link" href={resumeHref} target="_blank" rel="noreferrer">
+                            Download
+                          </a>
+                        ) : "—"}
+                      </td>
+                      <td className="td-text">
+                        {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "—"}
+                      </td>
+                      <td>
+                        <div className="actions">
+                          <button
+                            type="button"
+                            className={`btn-dot btn-dot--green ${busyId === app._id ? "is-busy" : ""}`}
+                            aria-label="Approve"
+                            onClick={() => setStatus(app._id, "approved")}
+                            disabled={busyId === app._id}
+                          />
+                          <button
+                            type="button"
+                            className={`btn-dot btn-dot--red ${busyId === app._id ? "is-busy" : ""}`}
+                            aria-label="Reject"
+                            onClick={() => setStatus(app._id, "rejected")}
+                            disabled={busyId === app._id}
+                          />
+                          <button
+                            type="button"
+                            className={`btn-dot btn-dot--yellow ${busyId === app._id ? "is-busy" : ""}`}
+                            aria-label="Set Pending"
+                            onClick={() => setStatus(app._id, "pending")}
+                            disabled={busyId === app._id}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pager */}
+      {!authError && !loading && filtered.length > 0 && (
         <div className="ap-pager">
           <div className="ap-pager__info">
             Showing {start + 1}–{Math.min(start + PAGE_SIZE, filtered.length)} of {filtered.length}

@@ -6,7 +6,7 @@ import Business from './Pages/Business'
 import Careers from './Pages/Careers'
 import Learn from './Pages/Learn'
 import Navbar from './Components/Navbar';
-
+import ScrollToTop from './Components/ScrollToTop';
 
 
 function App() {
@@ -14,6 +14,7 @@ function App() {
     
     <div className='App w-[100vw]'>
       
+        <ScrollToTop />
         <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<Aboutus />} />

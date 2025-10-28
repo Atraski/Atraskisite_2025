@@ -32,23 +32,32 @@ const mockJobs = [
   },
 ];
 
-const CareerList = ({ officeFilter, categoryFilter }) => {
+const normalize = (s = "") => s.trim().toLowerCase();
+
+const CareerList = ({ officeFilter = "All", categoryFilter = "All" }) => {
   const [jobs, setJobs] = useState([]);
 
   useEffect(() => {
-    // Simulate fetch delay
-    setTimeout(() => {
-      setJobs(mockJobs);
-    }, 1000);
+    const t = setTimeout(() => setJobs(mockJobs), 300);
+    return () => clearTimeout(t);
   }, []);
 
-  // Filter jobs based on selected filters
+  // Filter: support multi-city like "Delhi, Kolkata"
   const filteredJobs = jobs.filter((job) => {
-    const isOfficeMatch =
-      officeFilter === "All" || job.location.includes(officeFilter);
     const isCategoryMatch =
       categoryFilter === "All" || job.category === categoryFilter;
-    return isOfficeMatch && isCategoryMatch;
+
+    if (officeFilter === "All") return isCategoryMatch;
+
+    const jobCities = String(job.location)
+      .split(",")
+      .map((c) => normalize(c));
+
+    const want = normalize(officeFilter);
+    const isOfficeMatch =
+      jobCities.includes(want) || normalize(job.location) === want;
+
+    return isCategoryMatch && isOfficeMatch;
   });
 
   return (

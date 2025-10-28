@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { X } from "lucide-react";
+import React, { useMemo, useState, useEffect } from "react";
+import { X, MapPin } from "lucide-react";
 
 const MAX_FILE_MB = 5;
 const ALLOWED_TYPES = [
@@ -10,6 +10,13 @@ const ALLOWED_TYPES = [
   "image/png",
 ];
 
+// "Delhi, Kolkata" -> ["Delhi","Kolkata"]
+const getLocations = (s = "") =>
+  String(s)
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+
 const ApplicationModal = ({ isOpen, onClose, job }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -17,6 +24,13 @@ const ApplicationModal = ({ isOpen, onClose, job }) => {
   const [whatsapp, setWhatsapp] = useState("");
   const [message, setMessage] = useState("");
   const [file, setFile] = useState(null);
+
+  // Locations: uniform dropdown UI (single => disabled)
+  const locations = useMemo(() => getLocations(job?.location), [job]);
+  const [selectedLoc, setSelectedLoc] = useState(locations[0] || "");
+  useEffect(() => {
+    setSelectedLoc(locations[0] || "");
+  }, [locations]);
 
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,7 +45,7 @@ const ApplicationModal = ({ isOpen, onClose, job }) => {
     if (!ALLOWED_TYPES.includes(f.type)) return "Only PDF, DOC, DOCX, JPG, PNG allowed.";
     if (f.size > MAX_FILE_MB * 1024 * 1024) return `Max size ${MAX_FILE_MB} MB.`;
     return null;
-    };
+  };
 
   const onPickFile = (f) => {
     const err = validateFile(f);
@@ -57,17 +71,24 @@ const ApplicationModal = ({ isOpen, onClose, job }) => {
     setError(null);
     setIsSubmitting(true);
 
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("email", email);
-    formData.append("contactNumber", contact);
-    formData.append("whatsappNumber", whatsapp);
-    formData.append("message", message);
-    formData.append("file", file);
-    formData.append("jobTitle", job?.title ?? "");
-
     try {
-      const res = await fetch("http://localhost:5000/api/applications/apply", { method: "POST", body: formData });
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("email", email);
+      formData.append("contactNumber", contact);
+      formData.append("whatsappNumber", whatsapp);
+      formData.append("message", message);
+      formData.append("file", file);
+      formData.append("jobTitle", job?.title ?? "");
+
+      // 👇 exactly as required
+      formData.append("Location", selectedLoc || "");
+      formData.append("jobLocationLabel", job?.location ?? ""); // optional
+
+      const res = await fetch("http://localhost:5000/api/applications/apply", {
+        method: "POST",
+        body: formData,
+      });
       if (!res.ok) throw new Error(await res.text().catch(() => "Failed"));
 
       setIsSubmitted(true);
@@ -155,17 +176,50 @@ const ApplicationModal = ({ isOpen, onClose, job }) => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className="w-full px-4 py-2 border rounded-md disabled:bg-gray-100"
-              rows="4"
+              rows={4}
               disabled={disabled}
             />
 
-            {/* --- Custom File Uploader --- */}
+            {/* --- LOCATION: Always dropdown. Single -> disabled --- */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">
+                <span className="inline-flex items-center gap-1">
+                  <MapPin size={16} /> Location
+                </span>
+              </label>
+
+              <select
+                value={selectedLoc}
+                onChange={(e) => setSelectedLoc(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md bg-white disabled:bg-gray-100 
+              ${locations.length <= 1 ? "cursor-not-allowed" : "cursor-pointer"}`}
+                disabled={disabled || locations.length <= 1}
+                required
+              >
+                {locations.length ? (
+                  locations.map((loc, i) => (
+                    <option key={i} value={loc}>
+                      {loc}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No location</option>
+                )}
+              </select>
+
+
+              {locations.length === 1 && (
+                <p className="text-xs text-gray-500">This role is available in {locations[0]}.</p>
+              )}
+            </div>
+            {/* --- /LOCATION --- */}
+
+            {/* --- FILE UPLOADER --- */}
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
-              className={`rounded-md border-2 border-dashed p-4 transition ${
-                fileError ? "border-red-400 bg-red-50" : "border-gray-300 hover:border-gray-400"
-              } ${disabled ? "opacity-60" : ""}`}
+              className={`rounded-md border-2 border-dashed p-4 transition ${fileError ? "border-red-400 bg-red-50" : "border-gray-300 hover:border-gray-400"
+                } ${disabled ? "opacity-60" : ""}`}
             >
               <label htmlFor="resume" className="block text-sm font-medium mb-2">
                 Resume <span className="text-gray-400 font-normal">(PDF/DOC/DOCX/JPG/PNG, ≤ {MAX_FILE_MB} MB)</span>
@@ -197,7 +251,10 @@ const ApplicationModal = ({ isOpen, onClose, job }) => {
                 {file && (
                   <button
                     type="button"
-                    onClick={() => { setFile(null); setFileError(null); }}
+                    onClick={() => {
+                      setFile(null);
+                      setFileError(null);
+                    }}
                     className="text-xs text-gray-500 underline hover:text-gray-700"
                     disabled={disabled}
                   >
@@ -208,7 +265,7 @@ const ApplicationModal = ({ isOpen, onClose, job }) => {
 
               {fileError && <p className="mt-2 text-sm text-red-600">{fileError}</p>}
             </div>
-            {/* --- /Custom File Uploader --- */}
+            {/* --- /FILE UPLOADER --- */}
 
             <button
               type="submit"
@@ -226,7 +283,9 @@ const ApplicationModal = ({ isOpen, onClose, job }) => {
             </button>
 
             {!isSubmitting && (
-              <p className="text-xs text-gray-500 text-center">You’ll see a confirmation right after you click submit.</p>
+              <p className="text-xs text-gray-500 text-center">
+                You’ll see a confirmation right after you click submit.
+              </p>
             )}
           </form>
         )}
