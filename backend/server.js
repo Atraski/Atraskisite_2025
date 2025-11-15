@@ -32,7 +32,7 @@ app.use(
 // Allowlist for multiple dev origins
 const ALLOW = new Set(
   (process.env.CORS_ORIGINS ||
-    "https://atraski-backend-jizez.ondigitalocean.app/"
+    "https://atraski.com"
   )
     .split(",")
     .map((s) => s.trim())
