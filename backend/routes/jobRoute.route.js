@@ -62,6 +62,8 @@ router.post("/apply", upload.single("file"), async (req, res) => {
       whatsappNumber: req.body.whatsappNumber,
       jobTitle: req.body.jobTitle || "General",
       message: req.body.message,
+      location: req.body.Location || req.body.location || "", // Case-insensitive fallback
+      jobLocationLabel: req.body.jobLocationLabel || "",
       resumeUrl,
       // status defaults to "pending" if your schema has it
     });

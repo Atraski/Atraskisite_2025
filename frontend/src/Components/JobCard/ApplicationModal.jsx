@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { X, MapPin } from "lucide-react";
+import { API_BASE } from "../../config";
 
 const MAX_FILE_MB = 5;
 const ALLOWED_TYPES = [
@@ -85,7 +86,7 @@ const ApplicationModal = ({ isOpen, onClose, job }) => {
       formData.append("Location", selectedLoc || "");
       formData.append("jobLocationLabel", job?.location ?? ""); // optional
 
-      const res = await fetch("https://atraski-backend-jizez.ondigitalocean.app/api/applications/apply", {
+      const res = await fetch(`${API_BASE}api/applications/apply`, {
         method: "POST",
         body: formData,
       });
