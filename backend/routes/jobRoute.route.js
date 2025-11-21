@@ -1,37 +1,46 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const mongoose = require("mongoose");
+const { GridFSBucket } = require("mongodb");
 
 // ⚠️ Make sure folder name matches your project ("models" vs "Models")
 const JobApplication = require("../models/JobApplication");
 
-// Cloudinary config
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// Get GridFS bucket (initialized in server.js)
+const getGridFSBucket = () => {
+  if (global.gridFSBucket) {
+    return global.gridFSBucket;
+  }
+  // Fallback: create if not initialized
+  if (mongoose.connection.readyState === 1) {
+    return new GridFSBucket(mongoose.connection.db, {
+      bucketName: "resumes"
+    });
+  }
+  return null;
+};
 
-// small helper for neat public_id
-const slug = (s = "") =>
-  String(s).trim().toLowerCase().replace(/[^\w\-]+/g, "-").slice(0, 60);
-
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: async (req, file) => ({
-    folder: process.env.CLOUDINARY_FOLDER || "job-applications",
-    // "auto" handles pdf/doc/docx/jpg/png without juggling types
-    resource_type: "auto",
-    allowed_formats: ["pdf", "doc", "docx", "jpg", "jpeg", "png"],
-    public_id: `${Date.now()}-${slug(req.body?.name || "resume")}`,
-  }),
-});
+// Multer memory storage (we'll upload to GridFS manually)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "image/jpeg",
+      "image/png",
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PDF, DOC, DOCX, JPG, PNG allowed."));
+    }
+  },
 });
 
 /* =========================
@@ -53,7 +62,43 @@ router.get("/", async (_req, res) => {
 ========================= */
 router.post("/apply", upload.single("file"), async (req, res) => {
   try {
-    const resumeUrl = req.file?.path || null; // secure URL from Cloudinary
+    if (!req.file) {
+      return res.status(400).json({ error: "Resume file is required" });
+    }
+
+    // Store file in MongoDB GridFS
+    let fileId = null;
+    const gridFSBucket = getGridFSBucket();
+    
+    if (req.file && gridFSBucket) {
+      const fileName = `${Date.now()}-${(req.body.name || "resume").replace(/[^a-zA-Z0-9.-]/g, "_")}-${req.file.originalname}`;
+      
+      // Create write stream to GridFS
+      const writeStream = gridFSBucket.openUploadStream(fileName, {
+        contentType: req.file.mimetype,
+        metadata: {
+          originalName: req.file.originalname,
+          uploadedBy: req.body.email || "anonymous",
+        }
+      });
+
+      // Write buffer to GridFS
+      writeStream.end(req.file.buffer);
+      
+      // Wait for file to be written
+      fileId = await new Promise((resolve, reject) => {
+        writeStream.on("finish", () => {
+          resolve(writeStream.id);
+        });
+        writeStream.on("error", (err) => {
+          console.error("GridFS upload error:", err);
+          reject(err);
+        });
+      });
+    } else if (req.file && !gridFSBucket) {
+      console.error("GridFS bucket not available");
+      return res.status(500).json({ error: "File storage not available" });
+    }
 
     const doc = await JobApplication.create({
       name: req.body.name,
@@ -64,13 +109,17 @@ router.post("/apply", upload.single("file"), async (req, res) => {
       message: req.body.message || "", // Optional field
       location: req.body.Location || req.body.location || "", // Case-insensitive fallback
       jobLocationLabel: req.body.jobLocationLabel || "",
-      resumeUrl,
+      resumeFileId: fileId,
+      resumeFileName: req.file.originalname,
+      resumeMimeType: req.file.mimetype,
+      // Keep resumeUrl empty for new uploads
+      resumeUrl: null,
       // status defaults to "pending" if your schema has it
     });
 
     res.status(200).json({ message: "Application submitted", doc });
   } catch (error) {
-    console.error(error);
+    console.error("Apply error:", error);
     res
       .status(500)
       .json({ error: "Submission failed", detail: error.message });
@@ -85,121 +134,84 @@ router.post("/apply", upload.single("file"), async (req, res) => {
 router.get("/:id/resume", async (req, res) => {
   try {
     const app = await JobApplication.findById(req.params.id).lean();
-    if (!app || !app.resumeUrl) {
-      return res.status(404).json({ error: "Resume not found" });
+    if (!app) {
+      return res.status(404).json({ error: "Application not found" });
     }
 
-    const resumeUrl = app.resumeUrl;
+    // Priority: GridFS file > resumeUrl (for backward compatibility)
+    const gridFSBucket = getGridFSBucket();
     
-    // If it's a Cloudinary URL, fetch and serve with download headers
-    if (resumeUrl.includes("cloudinary.com") || resumeUrl.includes("res.cloudinary.com")) {
+    if (app.resumeFileId && gridFSBucket) {
       try {
-        // Format Cloudinary URL with fl_attachment transformation
-        let downloadUrl = resumeUrl;
-        
-        // Check if fl_attachment is already in the URL
-        if (!resumeUrl.includes("fl_attachment")) {
-          // Use regex to insert fl_attachment after /upload/
-          downloadUrl = resumeUrl.replace(
-            /(\/upload\/)(v\d+\/)?/,
-            (match, uploadPart, versionPart) => {
-              if (versionPart) {
-                return `${uploadPart}${versionPart}fl_attachment/`;
-              } else {
-                return `${uploadPart}fl_attachment/`;
-              }
-            }
-          );
+        // Convert to ObjectId
+        const fileId = typeof app.resumeFileId === 'string' 
+          ? new mongoose.Types.ObjectId(app.resumeFileId)
+          : app.resumeFileId;
+
+        // Check if file exists in GridFS
+        const files = await gridFSBucket.find({ _id: fileId }).toArray();
+        if (files.length === 0) {
+          throw new Error("File not found in GridFS");
         }
-        
-        // Get filename from original URL
-        const urlObj = new URL(resumeUrl);
-        const fileName = urlObj.pathname.split("/").pop() || "resume.pdf";
-        
-        // Fetch file from Cloudinary and stream to client
-        const https = require("https");
-        const http = require("http");
-        const protocol = downloadUrl.startsWith("https:") ? https : http;
-        
-        const request = protocol.get(downloadUrl, (fileRes) => {
-          // Handle redirects
-          if (fileRes.statusCode >= 300 && fileRes.statusCode < 400 && fileRes.headers.location) {
-            return res.redirect(fileRes.headers.location);
-          }
-          
-          if (fileRes.statusCode !== 200) {
-            console.error(`Cloudinary error: ${fileRes.statusCode} for ${downloadUrl}`);
-            if (!res.headersSent) {
-              return res.status(500).json({ 
-                error: "Failed to fetch file from Cloudinary",
-                status: fileRes.statusCode 
-              });
-            }
-            return;
-          }
-          
-            // Set download headers to force download
-            const safeFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-            res.setHeader("Content-Disposition", `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-            res.setHeader("Content-Type", fileRes.headers["content-type"] || "application/octet-stream");
-            res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-            res.setHeader("Pragma", "no-cache");
-            res.setHeader("Expires", "0");
-            if (fileRes.headers["content-length"]) {
-              res.setHeader("Content-Length", fileRes.headers["content-length"]);
-            }
-          
-          // Pipe file to response
-          fileRes.pipe(res);
-          
-          fileRes.on("error", (err) => {
-            console.error("Stream error:", err);
-            if (!res.headersSent) {
-              res.status(500).json({ error: "Error streaming file" });
-            }
-          });
-        });
-        
-        request.on("error", (err) => {
-          console.error("Request error:", err.message, "URL:", downloadUrl);
+
+        const file = files[0];
+        const fileName = app.resumeFileName || file.filename || "resume.pdf";
+        const mimeType = app.resumeMimeType || file.contentType || "application/octet-stream";
+
+        // Set download headers
+        const safeFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+        res.setHeader("Content-Disposition", `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+        res.setHeader("Content-Type", mimeType);
+        res.setHeader("Content-Length", file.length);
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+
+        // Stream file from GridFS to response
+        const downloadStream = gridFSBucket.openDownloadStream(fileId);
+        downloadStream.pipe(res);
+
+        downloadStream.on("error", (err) => {
+          console.error("GridFS download error:", err);
           if (!res.headersSent) {
-            // Fallback: redirect to original URL
-            return res.redirect(resumeUrl);
+            res.status(500).json({ error: "Error downloading file" });
           }
         });
-        
-        request.setTimeout(30000, () => {
-          console.error("Request timeout for:", downloadUrl);
-          request.destroy();
-          if (!res.headersSent) {
-            res.status(500).json({ error: "Request timeout" });
-          }
-        });
-        
+
         return; // Don't continue to other handlers
       } catch (err) {
-        console.error("Cloudinary processing error:", err.message);
-        // Fallback: redirect to original URL
-        return res.redirect(resumeUrl);
+        console.error("GridFS error:", err.message, err.stack);
+        // Fall through to legacy resumeUrl handling
       }
     }
-    
-    // For local files, serve with download headers
-    if (resumeUrl.startsWith("/uploads/") || resumeUrl.startsWith("uploads/")) {
-      const path = require("path");
-      const fs = require("fs");
-      const filePath = path.join(__dirname, "..", resumeUrl.startsWith("/") ? resumeUrl.slice(1) : resumeUrl);
+
+    // Legacy: Handle old Cloudinary/local URLs (for backward compatibility)
+    if (app.resumeUrl) {
+      // If it's a Cloudinary URL, redirect (old data)
+      if (app.resumeUrl.includes("cloudinary.com") || app.resumeUrl.includes("res.cloudinary.com")) {
+        return res.redirect(app.resumeUrl);
+      }
       
-      if (fs.existsSync(filePath)) {
-        const fileName = path.basename(filePath);
-        res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-        res.setHeader("Content-Type", "application/octet-stream");
-        return res.sendFile(filePath);
+      // For local files
+      if (app.resumeUrl.startsWith("/uploads/") || app.resumeUrl.startsWith("uploads/")) {
+        const path = require("path");
+        const fs = require("fs");
+        const filePath = path.join(__dirname, "..", app.resumeUrl.startsWith("/") ? app.resumeUrl.slice(1) : app.resumeUrl);
+        
+        if (fs.existsSync(filePath)) {
+          const fileName = path.basename(filePath);
+          res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+          res.setHeader("Content-Type", "application/octet-stream");
+          return res.sendFile(filePath);
+        }
       }
+      
+      // Fallback: redirect to original URL
+      return res.redirect(app.resumeUrl);
     }
-    
-    // Fallback: redirect to original URL
-    res.redirect(resumeUrl);
+
+    // No file found
+    return res.status(404).json({ error: "Resume file not found" });
   } catch (e) {
     console.error("Resume download error:", e);
     res.status(500).json({ error: "Failed to download resume" });
@@ -232,3 +244,4 @@ router.patch("/:id/status", async (req, res) => {
 });
 
 module.exports = router;
+

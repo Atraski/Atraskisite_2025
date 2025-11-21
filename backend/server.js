@@ -192,6 +192,13 @@
     .then(async () => {
       console.log("✅ MongoDB connected");
 
+      // Initialize GridFS for resume storage
+      const { GridFSBucket } = require("mongodb");
+      global.gridFSBucket = new GridFSBucket(mongoose.connection.db, {
+        bucketName: "resumes"
+      });
+      console.log("✅ GridFS initialized for resumes");
+
       // debug: DB + collections
       mongoose.connection.once("open", async () => {
         const cols = await mongoose.connection.db.listCollections().toArray();

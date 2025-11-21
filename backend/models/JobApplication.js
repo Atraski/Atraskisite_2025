@@ -14,7 +14,12 @@ const jobApplicationSchema = new mongoose.Schema(
     location:         { type: String, trim: true },       // e.g., "Delhi"
     jobLocationLabel: { type: String, trim: true },       // e.g., "Delhi, Kolkata"
 
-    // file/url (local uploads or cloud url)
+    // File storage in MongoDB GridFS
+    resumeFileId:     { type: mongoose.Schema.Types.ObjectId, ref: 'fs.files' }, // GridFS file ID
+    resumeFileName:   { type: String, trim: true },       // Original filename
+    resumeMimeType:   { type: String, trim: true },       // MIME type (e.g., application/pdf)
+    
+    // Legacy: keep for backward compatibility
     resumeUrl:      { type: String, trim: true },
 
     status: {

@@ -8,13 +8,17 @@ const downloadFile = async (url, filename) => {
   try {
     const token = localStorage.getItem("token");
     const response = await fetch(url, {
+      method: 'GET',
       headers: {
-        'Authorization': token ? `Bearer ${token}` : ''
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Accept': '*/*'
       }
     });
     
     if (!response.ok) {
-      throw new Error('Download failed');
+      const errorText = await response.text().catch(() => 'Download failed');
+      console.error('Download failed:', response.status, errorText);
+      throw new Error(`Download failed: ${response.status}`);
     }
     
     const blob = await response.blob();
@@ -22,14 +26,18 @@ const downloadFile = async (url, filename) => {
     const a = document.createElement('a');
     a.href = blobUrl;
     a.download = filename;
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(blobUrl);
-    document.body.removeChild(a);
+    
+    // Cleanup
+    setTimeout(() => {
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(a);
+    }, 100);
   } catch (err) {
     console.error('Download error:', err);
-    // Fallback: open in new tab
-    window.open(url, '_blank');
+    alert('Download failed. Please try again or contact support.');
   }
 };
 
@@ -43,62 +51,65 @@ const STATUS_META = {
 
 const normalizeUrl = (url = "") => url.replace(/\\/g, "/");
 
-// Helper to get download URL - handles Cloudinary and local files
-const getResumeHref = (resumeUrl, applicationId) => {
-  if (!resumeUrl) return null;
-  const normalized = normalizeUrl(resumeUrl);
+// Helper to get download URL - now uses MongoDB GridFS
+const getResumeHref = (resumeUrl, resumeFileId, applicationId) => {
+  // Priority: Use MongoDB GridFS if fileId exists
+  if (applicationId && resumeFileId) {
+    return `${API_BASE}api/applications/${applicationId}/resume`;
+  }
   
-  // Use backend proxy endpoint for reliable downloads (handles both Cloudinary and local files)
+  // Fallback: Legacy resumeUrl (for old data)
+  if (resumeUrl) {
+    const normalized = normalizeUrl(resumeUrl);
+    
+    // If it's a full URL (Cloudinary or external), use backend proxy
+    if (normalized.startsWith("http") && applicationId) {
+      return `${API_BASE}api/applications/${applicationId}/resume`;
+    }
+    
+    // Local file path - prepend API_BASE
+    if (!normalized.startsWith("http")) {
+      return `${API_BASE}${normalized.startsWith("/") ? "" : "/"}${normalized}`;
+    }
+    
+    return normalized;
+  }
+  
+  // Use backend endpoint if we have applicationId
   if (applicationId) {
     return `${API_BASE}api/applications/${applicationId}/resume`;
   }
   
-  // Fallback: If it's already a full URL (Cloudinary or external)
-  if (normalized.startsWith("http")) {
-    // For Cloudinary URLs, use proper transformation format
-    if (normalized.includes("cloudinary.com") || normalized.includes("res.cloudinary.com")) {
-      // Check if it already has transformations
-      if (normalized.includes("/upload/")) {
-        // Insert fl_attachment in the transformation chain
-        const parts = normalized.split("/upload/");
-        if (parts.length === 2) {
-          const [base, rest] = parts;
-          // Check if there are existing transformations
-          if (rest.includes("/")) {
-            // Add fl_attachment before the version/folder
-            const pathParts = rest.split("/");
-            // Insert fl_attachment as first transformation
-            pathParts[0] = `fl_attachment/${pathParts[0]}`;
-            return `${base}/upload/${pathParts.join("/")}`;
-          } else {
-            // No transformations, add fl_attachment
-            return `${base}/upload/fl_attachment/${rest}`;
-          }
-        }
-      }
-      // Fallback: add as query parameter
-      const separator = normalized.includes("?") ? "&" : "?";
-      return `${normalized}${separator}fl_attachment`;
-    }
-    return normalized;
-  }
-  
-  // Local file path - prepend API_BASE
-  return `${API_BASE}${normalized.startsWith("/") ? "" : "/"}${normalized}`;
+  return null;
 };
 
 // Helper to get file extension for download attribute
-const getFileExtension = (url) => {
-  if (!url) return "";
+const getFileExtension = (url, mimeType, fileName) => {
+  // Try filename first
+  if (fileName) {
+    const match = fileName.match(/\.([a-z0-9]+)$/i);
+    if (match) return match[1].toLowerCase();
+  }
+  
+  // Try MIME type
+  if (mimeType) {
+    const mimeMap = {
+      'application/pdf': 'pdf',
+      'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'image/jpeg': 'jpg',
+      'image/png': 'png'
+    };
+    if (mimeMap[mimeType]) return mimeMap[mimeType];
+  }
+  
   // Try to extract extension from URL
-  const match = url.match(/\.([a-z0-9]+)(?:[?#]|$)/i);
-  if (match) return match[1].toLowerCase();
+  if (url) {
+    const match = url.match(/\.([a-z0-9]+)(?:[?#]|$)/i);
+    if (match) return match[1].toLowerCase();
+  }
   
-  // For Cloudinary URLs without visible extension, try to detect from format parameter
-  const formatMatch = url.match(/[?&]format=([a-z0-9]+)/i);
-  if (formatMatch) return formatMatch[1].toLowerCase();
-  
-  return "";
+  return "pdf"; // Default to PDF
 };
 
 export default function Applications() {
@@ -291,7 +302,9 @@ export default function Applications() {
               ) : (
                 current.map((app) => {
                   const meta = STATUS_META[app.status] || STATUS_META.pending;
-                  const resumeHref = getResumeHref(app.resumeUrl, app._id);
+                  const resumeHref = getResumeHref(app.resumeUrl, app.resumeFileId, app._id);
+                  const fileExt = getFileExtension(app.resumeUrl, app.resumeMimeType, app.resumeFileName);
+                  const fileName = app.resumeFileName || `resume-${(app.name || 'file').replace(/\s+/g, '-')}.${fileExt}`;
 
                   return (
                     <tr key={app._id}>
@@ -307,23 +320,30 @@ export default function Applications() {
                       <td className="td-text">{app.whatsappNumber || "—"}</td>
                       <td className="td-text">{app.jobTitle || "General"}</td>
                       <td className="td-text">
-                        {app.jobLocationLabel || app.location || "—"}
+                        {app.location || "—"}
                       </td>
                       <td className="td-text">{app.message || "—"}</td>
                       <td className="td-text">
                         {resumeHref ? (
-                          <a 
-                            className="ap-link" 
-                            href={resumeHref}
+                          <button
+                            className="ap-link"
+                            style={{ 
+                              background: 'none', 
+                              border: 'none', 
+                              color: '#1d4ed8', 
+                              textDecoration: 'underline', 
+                              fontWeight: 700, 
+                              fontSize: '13px',
+                              cursor: 'pointer',
+                              padding: 0
+                            }}
                             onClick={async (e) => {
                               e.preventDefault();
-                              const fileName = `resume-${(app.name || 'file').replace(/\s+/g, '-')}.${getFileExtension(app.resumeUrl) || 'pdf'}`;
                               await downloadFile(resumeHref, fileName);
                             }}
-                            style={{ cursor: 'pointer' }}
                           >
                             Download
-                          </a>
+                          </button>
                         ) : "—"}
                       </td>
                       <td className="td-text">
@@ -381,3 +401,4 @@ export default function Applications() {
     </div>
   );
 }
+
