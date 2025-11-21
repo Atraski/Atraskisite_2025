@@ -1,45 +1,30 @@
 import React, { useEffect, useState } from "react";
 import JobCard from "../JobCard/JobCard";
-
-const mockJobs = [
-  {
-    id: 1,
-    title: "Business Development Executive",
-    location: "Delhi, Kolkata",
-    category: "Marketing",
-    description: "Join our marketing team.",
-  },
-  {
-    id: 2,
-    title: "MERN Full Stack Developer",
-    location: "Delhi",
-    category: "Engineering",
-    description: "Collaborate to build scalable web apps.",
-  },
-  {
-    id: 3,
-    title: "Motion Graphics Designer",
-    location: "Mumbai",
-    category: "Graphics Design",
-    description: "Create stunning motion graphics.",
-  },
-  {
-    id: 4,
-    title: "Social Media Manager",
-    location: "Remote",
-    category: "Marketing",
-    description: "Manage our social media presence.",
-  },
-];
+import { API_BASE } from "../../config";
 
 const normalize = (s = "") => s.trim().toLowerCase();
 
 const CareerList = ({ officeFilter = "All", categoryFilter = "All" }) => {
   const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t = setTimeout(() => setJobs(mockJobs), 300);
-    return () => clearTimeout(t);
+    const fetchJobs = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE}api/jobs`);
+        if (res.ok) {
+          const data = await res.json();
+          setJobs(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch jobs:", err);
+        setJobs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchJobs();
   }, []);
 
   // Filter: support multi-city like "Delhi, Kolkata"
@@ -60,6 +45,17 @@ const CareerList = ({ officeFilter = "All", categoryFilter = "All" }) => {
     return isCategoryMatch && isOfficeMatch;
   });
 
+  if (loading) {
+    return (
+      <div id="all-jobs" className="max-w-4xl mx-auto px-4 pb-12 scroll-mt-24">
+        <div className="text-center py-12">
+          <div className="h-8 w-8 animate-spin border-4 border-yellow-500 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-gray-600">Loading jobs...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div id="all-jobs" className="max-w-4xl mx-auto px-4 pb-12 scroll-mt-24">
       {filteredJobs.length === 0 ? (
@@ -67,7 +63,7 @@ const CareerList = ({ officeFilter = "All", categoryFilter = "All" }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-10">
           {filteredJobs.map((job) => (
-            <JobCard key={job.id} job={job} />
+            <JobCard key={job._id || job.slug} job={job} />
           ))}
         </div>
       )}

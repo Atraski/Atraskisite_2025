@@ -71,7 +71,7 @@ router.post("/apply", uploadFields, async (req, res) => {
 
     // basic validations (match FE requireds; don't force location label)
     const missing = [];
-    for (const k of ["name", "email", "contactNumber", "whatsappNumber", "jobTitle", "message"]) {
+    for (const k of ["name", "email", "contactNumber", "whatsappNumber", "jobTitle"]) {
       if (!req.body[k] || String(req.body[k]).trim() === "") missing.push(k);
     }
     if (missing.length) return res.status(400).json({ message: `Missing fields: ${missing.join(", ")}` });

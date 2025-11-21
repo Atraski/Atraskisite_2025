@@ -8,7 +8,7 @@ const jobApplicationSchema = new mongoose.Schema(
     contactNumber:  { type: String, required: true, trim: true },
     whatsappNumber: { type: String, required: true, trim: true },
     jobTitle:       { type: String, required: true, trim: true },
-    message:        { type: String, required: true, trim: true },
+    message:        { type: String, trim: true },
 
     // ✅ FINAL: singular field names
     location:         { type: String, trim: true },       // e.g., "Delhi"

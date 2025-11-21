@@ -172,8 +172,7 @@ const ApplicationModal = ({ isOpen, onClose, job }) => {
               disabled={disabled}
             />
             <textarea
-              required
-              placeholder="Your message"
+              placeholder="Your message (optional)"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className="w-full px-4 py-2 border rounded-md disabled:bg-gray-100"

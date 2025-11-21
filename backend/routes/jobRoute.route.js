@@ -61,7 +61,7 @@ router.post("/apply", upload.single("file"), async (req, res) => {
       contactNumber: req.body.contactNumber,
       whatsappNumber: req.body.whatsappNumber,
       jobTitle: req.body.jobTitle || "General",
-      message: req.body.message,
+      message: req.body.message || "", // Optional field
       location: req.body.Location || req.body.location || "", // Case-insensitive fallback
       jobLocationLabel: req.body.jobLocationLabel || "",
       resumeUrl,
@@ -74,6 +74,49 @@ router.post("/apply", upload.single("file"), async (req, res) => {
     res
       .status(500)
       .json({ error: "Submission failed", detail: error.message });
+  }
+});
+
+/* =========================
+   GET /api/applications/:id/resume  (Protected)
+   Proxy download for resume files with proper headers
+========================= */
+router.get("/:id/resume", async (req, res) => {
+  try {
+    const app = await JobApplication.findById(req.params.id).lean();
+    if (!app || !app.resumeUrl) {
+      return res.status(404).json({ error: "Resume not found" });
+    }
+
+    const resumeUrl = app.resumeUrl;
+    
+    // If it's a Cloudinary URL, redirect with fl_attachment
+    if (resumeUrl.includes("cloudinary.com") || resumeUrl.includes("res.cloudinary.com")) {
+      const downloadUrl = resumeUrl.includes("fl_attachment") 
+        ? resumeUrl 
+        : `${resumeUrl}${resumeUrl.includes("?") ? "&" : "?"}fl_attachment`;
+      return res.redirect(downloadUrl);
+    }
+    
+    // For local files, serve with download headers
+    if (resumeUrl.startsWith("/uploads/") || resumeUrl.startsWith("uploads/")) {
+      const path = require("path");
+      const fs = require("fs");
+      const filePath = path.join(__dirname, "..", resumeUrl.startsWith("/") ? resumeUrl.slice(1) : resumeUrl);
+      
+      if (fs.existsSync(filePath)) {
+        const fileName = path.basename(filePath);
+        res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+        res.setHeader("Content-Type", "application/octet-stream");
+        return res.sendFile(filePath);
+      }
+    }
+    
+    // Fallback: redirect to original URL
+    res.redirect(resumeUrl);
+  } catch (e) {
+    console.error("Resume download error:", e);
+    res.status(500).json({ error: "Failed to download resume" });
   }
 });
 

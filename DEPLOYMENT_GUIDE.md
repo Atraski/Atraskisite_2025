@@ -43,9 +43,13 @@ ACCESS_TOKEN_TTL=30m
    - Most hosting platforms automatically `PORT` environment variable set karte hain
    - Ensure server.js mein `process.env.PORT` use ho raha hai (already done)
 
-3. **CORS Errors**
+3. **CORS Errors** ⚠️ COMMON ISSUE
    - Frontend URL ko `CORS_ORIGINS` mein add karo
    - Multiple origins ke liye comma-separated list use karo
+   - **Important:** Trailing slashes automatically handle ho jayengi
+   - Backend logs mein CORS requests dikhenge - check karo ki origin match kar raha hai
+   - Example: `CORS_ORIGINS=https://atraski.com,https://www.atraski.com`
+   - Agar error aa raha hai, backend logs check karo - wahan exact origin dikhega
 
 ### 2. Frontend Deployment
 
@@ -143,6 +147,12 @@ Build files `admin/build` folder mein generate honge.
 - Backend URL check karo (frontend/admin .env mein)
 - CORS_ORIGINS check karo (backend .env mein)
 - Network tab mein actual error check karo
+- **CORS Error specifically:**
+  - Backend server logs check karo - wahan exact origin dikhega
+  - `CORS_ORIGINS` environment variable mein exact frontend URL add karo
+  - Example: Agar frontend `https://atraski.com` se chal raha hai, to `CORS_ORIGINS=https://atraski.com,https://www.atraski.com`
+  - Backend restart karo after environment variable change
+  - Browser console mein exact origin check karo (Network tab → Request Headers → Origin)
 
 ### MongoDB connection fail?
 - `MONGODB_URI` check karo

@@ -37,20 +37,26 @@ router.post("/login", loginLimiter, async (req, res) => {
     const devMode = (process.env.NODE_ENV || "development") !== "production";
     const baseQuery = { email: String(email).toLowerCase() };
 
-    // 👇 DEV: ignore isActive completely
-    const query = devMode ? baseQuery : { ...baseQuery, isActive: true };
-
-    // Extra debug to confirm DB/collection
-    console.log("[LOGIN] query:", query);
-    const user = await User.findOne(query);
-    console.log("[LOGIN userFound?]", !!user);
-
-    // If still not found, check email-only once (hard diagnostic)
+    // First, find user by email only (to check if exists)
+    const user = await User.findOne(baseQuery);
+    console.log("[LOGIN] email:", email.toLowerCase());
+    console.log("[LOGIN] userFound?", !!user);
+    
     if (!user) {
-      const emailOnly = await User.findOne(baseQuery);
-      console.log("[LOGIN email-only exists?]", !!emailOnly, emailOnly ? { isActive: emailOnly.isActive } : null);
+      console.log("[LOGIN] User not found with email:", email.toLowerCase());
       return res.status(401).json({ error: "Invalid credentials" });
     }
+
+    // Check if user is active (required in production)
+    if (!devMode && !user.isActive) {
+      console.log("[LOGIN] User found but isActive=false in production");
+      console.log("[LOGIN] User details:", { email: user.email, isActive: user.isActive, role: user.role });
+      return res.status(401).json({ 
+        error: "Account is inactive. Please contact administrator." 
+      });
+    }
+
+    console.log("[LOGIN] User found:", { email: user.email, isActive: user.isActive, role: user.role });
 
     const ok = await bcrypt.compare(password, user.passwordHash || "");
     console.log("[LOGIN passwordMatch?]", ok);

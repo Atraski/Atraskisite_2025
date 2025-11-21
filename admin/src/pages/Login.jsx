@@ -32,36 +32,98 @@ export default function Login() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#f9fafb", padding: 24 }}>
-      <form onSubmit={submit} style={{ width: 360, maxWidth: "100%", background: "#fff", padding: 24, borderRadius: 12, boxShadow: "0 6px 24px rgba(0,0,0,0.08)" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 16 }}>Admin Login</h1>
+    <div style={{ 
+      minHeight: "100vh", 
+      display: "grid", 
+      placeItems: "center", 
+      background: "#f9fafb", 
+      padding: "20px 16px",
+      boxSizing: "border-box"
+    }}>
+      <form onSubmit={submit} style={{ 
+        width: "100%", 
+        maxWidth: 400, 
+        background: "#fff", 
+        padding: "24px 20px", 
+        borderRadius: 12, 
+        boxShadow: "0 6px 24px rgba(0,0,0,0.08)",
+        boxSizing: "border-box"
+      }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 20, color: "#111827" }}>Admin Login</h1>
 
-        {err && <div style={{ background: "#FEF2F2", color: "#991B1B", border: "1px solid #FECACA", padding: 10, borderRadius: 8, marginBottom: 12 }}>{err}</div>}
+        {err && <div style={{ 
+          background: "#FEF2F2", 
+          color: "#991B1B", 
+          border: "1px solid #FECACA", 
+          padding: "12px 16px", 
+          borderRadius: 8, 
+          marginBottom: 16,
+          fontSize: 14
+        }}>{err}</div>}
 
-        <label style={{ fontSize: 12, color: "#6b7280" }}>Email</label>
+        <label style={{ 
+          fontSize: 14, 
+          color: "#374151", 
+          fontWeight: 600,
+          display: "block",
+          marginBottom: 6
+        }}>Email</label>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
           placeholder="you@company.com"
-          style={{ width: "100%", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 8, marginTop: 4, marginBottom: 12 }}
+          style={{ 
+            width: "100%", 
+            padding: "12px 16px", 
+            border: "1px solid #e5e7eb", 
+            borderRadius: 8, 
+            marginBottom: 16,
+            fontSize: 14,
+            boxSizing: "border-box"
+          }}
         />
 
-        <label style={{ fontSize: 12, color: "#6b7280" }}>Password</label>
+        <label style={{ 
+          fontSize: 14, 
+          color: "#374151", 
+          fontWeight: 600,
+          display: "block",
+          marginBottom: 6
+        }}>Password</label>
         <input
           type="password"
           value={password}
           onChange={(e) => setPwd(e.target.value)}
           required
           placeholder="••••••••"
-          style={{ width: "100%", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 8, marginTop: 4, marginBottom: 16 }}
+          style={{ 
+            width: "100%", 
+            padding: "12px 16px", 
+            border: "1px solid #e5e7eb", 
+            borderRadius: 8, 
+            marginBottom: 20,
+            fontSize: 14,
+            boxSizing: "border-box"
+          }}
         />
 
         <button
           type="submit"
           disabled={loading}
-          style={{ width: "100%", padding: "10px 12px", background: "#111827", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}
+          style={{ 
+            width: "100%", 
+            padding: "12px 16px", 
+            background: loading ? "#6b7280" : "#111827", 
+            color: "#fff", 
+            border: "none", 
+            borderRadius: 8, 
+            fontWeight: 600, 
+            fontSize: 14,
+            cursor: loading ? "not-allowed" : "pointer",
+            transition: "background 0.2s"
+          }}
         >
           {loading ? "Signing in…" : "Sign in"}
         </button>

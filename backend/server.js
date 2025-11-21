@@ -30,27 +30,39 @@
   );
 
   // Allowlist for multiple dev origins
+  // Normalize origins: remove trailing slashes and normalize
+  const normalizeOrigin = (url) => {
+    if (!url) return null;
+    return url.trim().replace(/\/+$/, ''); // Remove trailing slashes
+  };
+
   const ALLOW = new Set(
     (process.env.CORS_ORIGINS ||
       "https://atraski.com,https://www.atraski.com"
     )
       .split(",")
-      .map((s) => s.trim())
+      .map(normalizeOrigin)
       .filter(Boolean)
   );
 
-  // Debug: log allowed origins on startup
-  if (process.env.NODE_ENV !== 'production') {
-    console.log("🌐 CORS allowed origins:", Array.from(ALLOW));
-  }
+  // Log allowed origins on startup (both dev and prod for debugging)
+  console.log("🌐 CORS allowed origins:", Array.from(ALLOW));
+  console.log("🌐 CORS_ORIGINS env:", process.env.CORS_ORIGINS || "using defaults");
 
   // Hard CORS (works reliably with Express 5 + multipart)
   app.use((req, res, next) => {
-    const origin = req.headers.origin;
+    const rawOrigin = req.headers.origin;
+    const origin = normalizeOrigin(rawOrigin);
     
-    // Debug logging in development
-    if (process.env.NODE_ENV !== 'production' && origin) {
-      console.log("[CORS]", req.method, req.path, "origin:", origin, "allowed:", ALLOW.has(origin));
+    // Log CORS requests for debugging (especially in production)
+    if (origin) {
+      const isAllowed = ALLOW.has(origin);
+      console.log(`[CORS] ${req.method} ${req.path} | origin: ${origin} | allowed: ${isAllowed}`);
+      
+      if (!isAllowed && rawOrigin) {
+        console.warn(`[CORS] Blocked origin: ${rawOrigin} (normalized: ${origin})`);
+        console.warn(`[CORS] Allowed origins:`, Array.from(ALLOW));
+      }
     }
 
     // Handle preflight OPTIONS requests first
@@ -72,7 +84,12 @@
         return res.sendStatus(204);
       } else {
         // Origin not allowed - return 403 for preflight
-        return res.status(403).json({ error: "CORS: Origin not allowed" });
+        console.error(`[CORS] Preflight blocked for origin: ${origin}`);
+        return res.status(403).json({ 
+          error: "CORS: Origin not allowed",
+          received: origin,
+          allowed: Array.from(ALLOW)
+        });
       }
     }
 
@@ -89,6 +106,9 @@
         "Access-Control-Allow-Headers",
         reqHdr || "Content-Type, Authorization"
       );
+    } else if (origin) {
+      // Log blocked requests
+      console.error(`[CORS] Request blocked for origin: ${origin}`);
     }
 
     next();
@@ -120,9 +140,25 @@
   const inviteRoutes = require("./routes/invites.route");   // /admin/invites
   const userRoutes = require("./routes/users.routes");      // /admin/users
   const jobRoutes = require("./routes/jobRoute.route");     // /api/applications
+  const jobsRoutes = require("./routes/jobs.route");       // /api/jobs
 
   // Mount
   app.use("/auth", authRoutes);
+
+  // Jobs routes: public GET, admin routes protected
+  app.use(
+    "/api/jobs",
+    (req, res, next) => {
+      // Protect admin routes
+      if (req.path.startsWith("/admin")) {
+        return auth(req, res, () =>
+          requireRoles("Head", "manager", "hr")(req, res, next)
+        );
+      }
+      return next();
+    },
+    jobsRoutes
+  );
 
   // Admin-only (Head + manager)
   app.use("/admin/invites", auth, requireRoles("Head", "manager"), inviteRoutes);
@@ -163,13 +199,15 @@
         console.log("📚 Collections:", cols.map((c) => c.name));
       });
 
-      // Seed Head user if missing (dev convenience)
+      // Seed Head user if missing (or ensure it's active)
       try {
         const User = require("./models/User");
         const email = (process.env.SEED_HEAD_EMAIL || "head@atraski.in").toLowerCase();
         const pass  = process.env.SEED_HEAD_PASSWORD || "ChangeMe#Head";
         const exists = await User.findOne({ email });
+        
         if (!exists) {
+          // Create new user
           const hash = await bcrypt.hash(pass, 10);
           await User.create({
             email,
@@ -182,10 +220,17 @@
           });
           console.log("🟢 Seeded Head user:", email);
         } else {
-          console.log("ℹ️  Head user exists:", exists.email);
+          // User exists - ensure it's active (don't reset password automatically)
+          if (!exists.isActive) {
+            exists.isActive = true;
+            await exists.save();
+            console.log("🟡 Activated Head user (was inactive):", email);
+          } else {
+            console.log("ℹ️  Head user exists and is active:", exists.email);
+          }
         }
       } catch (e) {
-        console.warn("Seed skipped:", e?.message || e);
+        console.warn("⚠️  Seed skipped:", e?.message || e);
       }
 
       const server = app.listen(PORT, () => {

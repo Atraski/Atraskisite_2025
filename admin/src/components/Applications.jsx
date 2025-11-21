@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { api, API_BASE } from "../api";
+import { Link } from "react-router-dom";
+import { api, API_BASE, logout } from "../api";
 import "./Applications.css";
 
 const PAGE_SIZE = 20;
@@ -11,12 +12,44 @@ const STATUS_META = {
 };
 
 const normalizeUrl = (url = "") => url.replace(/\\/g, "/");
+
+// Helper to get download URL - handles Cloudinary and local files
 const getResumeHref = (resumeUrl) => {
   if (!resumeUrl) return null;
   const normalized = normalizeUrl(resumeUrl);
-  return normalized.startsWith("http")
-    ? normalized
-    : `${API_BASE}${normalized.startsWith("/") ? "" : "/"}${normalized}`;
+  
+  // If it's already a full URL (Cloudinary or external)
+  if (normalized.startsWith("http")) {
+    // For Cloudinary URLs, add fl_attachment to force download
+    // Check if it's a Cloudinary URL
+    if (normalized.includes("cloudinary.com") || normalized.includes("res.cloudinary.com")) {
+      // Check if fl_attachment is already present
+      if (!normalized.includes("fl_attachment")) {
+        // Add fl_attachment transformation to force download
+        // This works for all file types (PDF, DOC, images, etc.)
+        const separator = normalized.includes("?") ? "&" : "?";
+        return `${normalized}${separator}fl_attachment`;
+      }
+    }
+    return normalized;
+  }
+  
+  // Local file path - prepend API_BASE
+  return `${API_BASE}${normalized.startsWith("/") ? "" : "/"}${normalized}`;
+};
+
+// Helper to get file extension for download attribute
+const getFileExtension = (url) => {
+  if (!url) return "";
+  // Try to extract extension from URL
+  const match = url.match(/\.([a-z0-9]+)(?:[?#]|$)/i);
+  if (match) return match[1].toLowerCase();
+  
+  // For Cloudinary URLs without visible extension, try to detect from format parameter
+  const formatMatch = url.match(/[?&]format=([a-z0-9]+)/i);
+  if (formatMatch) return formatMatch[1].toLowerCase();
+  
+  return "";
 };
 
 export default function Applications() {
@@ -91,9 +124,28 @@ export default function Applications() {
     }
   };
 
+  const userEmail = localStorage.getItem("email") || "";
+  const userRole = localStorage.getItem("role") || "";
+
   return (
     <div className="ap-root">
-      <h2 className="ap-title">Job Applications</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+        <h2 className="ap-title" style={{ margin: 0 }}>Job Applications</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Link to="/jobs" className="ap-btn ap-btn--secondary" style={{ textDecoration: 'none' }}>
+            Manage Jobs
+          </Link>
+          {userEmail && (
+            <div style={{ fontSize: '14px', color: '#6b7280' }}>
+              <span style={{ fontWeight: 600, color: '#374151' }}>{userEmail}</span>
+              {userRole && <span style={{ marginLeft: '8px', textTransform: 'capitalize' }}>({userRole})</span>}
+            </div>
+          )}
+          <button className="ap-btn ap-btn--secondary" onClick={logout}>
+            Logout
+          </button>
+        </div>
+      </div>
 
       {/* Unauthorized banner with Login CTA */}
       {authError && (
@@ -161,6 +213,7 @@ export default function Applications() {
               <col style={{ width: "140px" }} />
               <col style={{ width: "140px" }} />
               <col style={{ width: "220px" }} />
+              <col style={{ width: "180px" }} />
               <col />
               <col style={{ width: "130px" }} />
               <col style={{ width: "130px" }} />
@@ -174,6 +227,7 @@ export default function Applications() {
                 <th>Contact</th>
                 <th>WhatsApp</th>
                 <th>Job Title</th>
+                <th>Location</th>
                 <th>Message</th>
                 <th>Resume</th>
                 <th>Applied On</th>
@@ -182,9 +236,9 @@ export default function Applications() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="10" className="ap-empty">Loading…</td></tr>
+                <tr><td colSpan="11" className="ap-empty">Loading…</td></tr>
               ) : current.length === 0 ? (
-                <tr><td colSpan="10" className="ap-empty">No applications found</td></tr>
+                <tr><td colSpan="11" className="ap-empty">No applications found</td></tr>
               ) : (
                 current.map((app) => {
                   const meta = STATUS_META[app.status] || STATUS_META.pending;
@@ -203,10 +257,19 @@ export default function Applications() {
                       <td className="td-text">{app.contactNumber || "—"}</td>
                       <td className="td-text">{app.whatsappNumber || "—"}</td>
                       <td className="td-text">{app.jobTitle || "General"}</td>
+                      <td className="td-text">
+                        {app.jobLocationLabel || app.location || "—"}
+                      </td>
                       <td className="td-text">{app.message || "—"}</td>
                       <td className="td-text">
                         {resumeHref ? (
-                          <a className="ap-link" href={resumeHref} target="_blank" rel="noreferrer">
+                          <a 
+                            className="ap-link" 
+                            href={resumeHref} 
+                            target="_blank" 
+                            rel="noreferrer noopener"
+                            download={getFileExtension(app.resumeUrl) ? `resume.${getFileExtension(app.resumeUrl)}` : undefined}
+                          >
                             Download
                           </a>
                         ) : "—"}

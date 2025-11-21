@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Applications from "./components/Applications"; // adjust if path differs
+import Jobs from "./components/Jobs";
 import Login from "./pages/Login";                   // make sure this file exists
 
 export default function App() {
@@ -21,6 +22,15 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Applications />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/jobs"
+          element={
+            <ProtectedRoute>
+              <Jobs />
             </ProtectedRoute>
           }
         />
