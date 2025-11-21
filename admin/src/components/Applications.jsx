@@ -3,6 +3,36 @@ import { Link } from "react-router-dom";
 import { api, API_BASE, logout } from "../api";
 import "./Applications.css";
 
+// Helper to download file
+const downloadFile = async (url, filename) => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Download failed');
+    }
+    
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(blobUrl);
+    document.body.removeChild(a);
+  } catch (err) {
+    console.error('Download error:', err);
+    // Fallback: open in new tab
+    window.open(url, '_blank');
+  }
+};
+
 const PAGE_SIZE = 20;
 
 const STATUS_META = {
@@ -285,14 +315,12 @@ export default function Applications() {
                           <a 
                             className="ap-link" 
                             href={resumeHref}
-                            download
-                            onClick={(e) => {
-                              // For Cloudinary URLs, ensure proper download
-                              if (app.resumeUrl && app.resumeUrl.includes("cloudinary.com")) {
-                                // Let the backend proxy handle it
-                                return true;
-                              }
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              const fileName = `resume-${(app.name || 'file').replace(/\s+/g, '-')}.${getFileExtension(app.resumeUrl) || 'pdf'}`;
+                              await downloadFile(resumeHref, fileName);
                             }}
+                            style={{ cursor: 'pointer' }}
                           >
                             Download
                           </a>

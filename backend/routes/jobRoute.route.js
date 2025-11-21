@@ -80,6 +80,7 @@ router.post("/apply", upload.single("file"), async (req, res) => {
 /* =========================
    GET /api/applications/:id/resume  (Protected)
    Proxy download for resume files with proper headers
+   NOTE: This route must be BEFORE /:id/status route
 ========================= */
 router.get("/:id/resume", async (req, res) => {
   try {
@@ -90,64 +91,95 @@ router.get("/:id/resume", async (req, res) => {
 
     const resumeUrl = app.resumeUrl;
     
-    // If it's a Cloudinary URL, fetch and serve with proper download headers
+    // If it's a Cloudinary URL, fetch and serve with download headers
     if (resumeUrl.includes("cloudinary.com") || resumeUrl.includes("res.cloudinary.com")) {
       try {
         // Format Cloudinary URL with fl_attachment transformation
         let downloadUrl = resumeUrl;
         
-        // Check if fl_attachment is already in the URL path
+        // Check if fl_attachment is already in the URL
         if (!resumeUrl.includes("fl_attachment")) {
-          // Insert fl_attachment transformation in the URL path
-          if (resumeUrl.includes("/upload/")) {
-            const parts = resumeUrl.split("/upload/");
-            if (parts.length === 2) {
-              const [base, rest] = parts;
-              // Check if there's a version number (v1234567890)
-              const versionMatch = rest.match(/^(v\d+\/)/);
-              if (versionMatch) {
-                // Insert fl_attachment after version
-                downloadUrl = `${base}/upload/${versionMatch[1]}fl_attachment/${rest.substring(versionMatch[1].length)}`;
+          // Use regex to insert fl_attachment after /upload/
+          downloadUrl = resumeUrl.replace(
+            /(\/upload\/)(v\d+\/)?/,
+            (match, uploadPart, versionPart) => {
+              if (versionPart) {
+                return `${uploadPart}${versionPart}fl_attachment/`;
               } else {
-                // No version, insert fl_attachment at the start
-                downloadUrl = `${base}/upload/fl_attachment/${rest}`;
+                return `${uploadPart}fl_attachment/`;
               }
             }
-          }
+          );
         }
         
-        // Fetch the file from Cloudinary
+        // Get filename from original URL
+        const urlObj = new URL(resumeUrl);
+        const fileName = urlObj.pathname.split("/").pop() || "resume.pdf";
+        
+        // Fetch file from Cloudinary and stream to client
         const https = require("https");
         const http = require("http");
-        const url = require("url");
-        const fileUrl = new URL(downloadUrl);
-        const client = fileUrl.protocol === "https:" ? https : http;
+        const protocol = downloadUrl.startsWith("https:") ? https : http;
         
-        // Get filename from URL
-        const urlPath = fileUrl.pathname;
-        const fileName = urlPath.split("/").pop() || "resume.pdf";
-        
-        // Fetch and stream the file
-        client.get(downloadUrl, (fileRes) => {
-          if (fileRes.statusCode !== 200) {
-            return res.status(fileRes.statusCode).json({ error: "Failed to fetch file from Cloudinary" });
+        const request = protocol.get(downloadUrl, (fileRes) => {
+          // Handle redirects
+          if (fileRes.statusCode >= 300 && fileRes.statusCode < 400 && fileRes.headers.location) {
+            return res.redirect(fileRes.headers.location);
           }
           
-          // Set download headers
-          res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-          res.setHeader("Content-Type", fileRes.headers["content-type"] || "application/octet-stream");
+          if (fileRes.statusCode !== 200) {
+            console.error(`Cloudinary error: ${fileRes.statusCode} for ${downloadUrl}`);
+            if (!res.headersSent) {
+              return res.status(500).json({ 
+                error: "Failed to fetch file from Cloudinary",
+                status: fileRes.statusCode 
+              });
+            }
+            return;
+          }
           
-          // Pipe the file to response
+            // Set download headers to force download
+            const safeFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+            res.setHeader("Content-Disposition", `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+            res.setHeader("Content-Type", fileRes.headers["content-type"] || "application/octet-stream");
+            res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            res.setHeader("Pragma", "no-cache");
+            res.setHeader("Expires", "0");
+            if (fileRes.headers["content-length"]) {
+              res.setHeader("Content-Length", fileRes.headers["content-length"]);
+            }
+          
+          // Pipe file to response
           fileRes.pipe(res);
-        }).on("error", (err) => {
-          console.error("Error fetching from Cloudinary:", err);
-          res.status(500).json({ error: "Failed to download file" });
+          
+          fileRes.on("error", (err) => {
+            console.error("Stream error:", err);
+            if (!res.headersSent) {
+              res.status(500).json({ error: "Error streaming file" });
+            }
+          });
+        });
+        
+        request.on("error", (err) => {
+          console.error("Request error:", err.message, "URL:", downloadUrl);
+          if (!res.headersSent) {
+            // Fallback: redirect to original URL
+            return res.redirect(resumeUrl);
+          }
+        });
+        
+        request.setTimeout(30000, () => {
+          console.error("Request timeout for:", downloadUrl);
+          request.destroy();
+          if (!res.headersSent) {
+            res.status(500).json({ error: "Request timeout" });
+          }
         });
         
         return; // Don't continue to other handlers
       } catch (err) {
-        console.error("Cloudinary download error:", err);
-        // Fallback to redirect
+        console.error("Cloudinary processing error:", err.message);
+        // Fallback: redirect to original URL
         return res.redirect(resumeUrl);
       }
     }
