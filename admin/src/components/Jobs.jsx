@@ -109,26 +109,58 @@ export default function Jobs() {
   const userEmail = localStorage.getItem("email") || "";
   const userRole = localStorage.getItem("role") || "";
 
+  const activeJobsCount = jobs.filter(j => j.isActive).length;
+  const inactiveJobsCount = jobs.filter(j => !j.isActive).length;
+
   return (
     <div className="jobs-root">
+      {/* Header Section */}
       <div className="jobs-header">
-        <h2 className="jobs-title">Job Openings</h2>
+        <div className="jobs-header-left">
+          <h2 className="jobs-title">Manage Job Openings</h2>
+          <p className="jobs-subtitle">Create, edit, and manage job postings for your careers page</p>
+        </div>
         <div className="jobs-header-right">
           <Link to="/applications" className="jobs-btn jobs-btn--secondary" style={{ textDecoration: 'none' }}>
-            View Applications
+            📋 View Applications
           </Link>
+          <button className="jobs-btn jobs-btn--primary" onClick={handleCreate}>
+            ➕ Create New Job
+          </button>
           {userEmail && (
             <div className="jobs-user-info">
               <span className="jobs-user-email">{userEmail}</span>
               {userRole && <span className="jobs-user-role">({userRole})</span>}
             </div>
           )}
-          <button className="jobs-btn jobs-btn--primary" onClick={handleCreate}>
-            + Create New Job
-          </button>
           <button className="jobs-btn jobs-btn--secondary" onClick={logout}>
             Logout
           </button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="jobs-stats">
+        <div className="jobs-stat-card jobs-stat-card--total">
+          <div className="jobs-stat-icon">📊</div>
+          <div className="jobs-stat-content">
+            <div className="jobs-stat-value">{jobs.length}</div>
+            <div className="jobs-stat-label">Total Jobs</div>
+          </div>
+        </div>
+        <div className="jobs-stat-card jobs-stat-card--active">
+          <div className="jobs-stat-icon">✅</div>
+          <div className="jobs-stat-content">
+            <div className="jobs-stat-value">{activeJobsCount}</div>
+            <div className="jobs-stat-label">Active Jobs</div>
+          </div>
+        </div>
+        <div className="jobs-stat-card jobs-stat-card--inactive">
+          <div className="jobs-stat-icon">⏸️</div>
+          <div className="jobs-stat-content">
+            <div className="jobs-stat-value">{inactiveJobsCount}</div>
+            <div className="jobs-stat-label">Inactive Jobs</div>
+          </div>
         </div>
       </div>
 

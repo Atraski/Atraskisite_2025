@@ -14,22 +14,41 @@ const STATUS_META = {
 const normalizeUrl = (url = "") => url.replace(/\\/g, "/");
 
 // Helper to get download URL - handles Cloudinary and local files
-const getResumeHref = (resumeUrl) => {
+const getResumeHref = (resumeUrl, applicationId) => {
   if (!resumeUrl) return null;
   const normalized = normalizeUrl(resumeUrl);
   
-  // If it's already a full URL (Cloudinary or external)
+  // Use backend proxy endpoint for reliable downloads (handles both Cloudinary and local files)
+  if (applicationId) {
+    return `${API_BASE}api/applications/${applicationId}/resume`;
+  }
+  
+  // Fallback: If it's already a full URL (Cloudinary or external)
   if (normalized.startsWith("http")) {
-    // For Cloudinary URLs, add fl_attachment to force download
-    // Check if it's a Cloudinary URL
+    // For Cloudinary URLs, use proper transformation format
     if (normalized.includes("cloudinary.com") || normalized.includes("res.cloudinary.com")) {
-      // Check if fl_attachment is already present
-      if (!normalized.includes("fl_attachment")) {
-        // Add fl_attachment transformation to force download
-        // This works for all file types (PDF, DOC, images, etc.)
-        const separator = normalized.includes("?") ? "&" : "?";
-        return `${normalized}${separator}fl_attachment`;
+      // Check if it already has transformations
+      if (normalized.includes("/upload/")) {
+        // Insert fl_attachment in the transformation chain
+        const parts = normalized.split("/upload/");
+        if (parts.length === 2) {
+          const [base, rest] = parts;
+          // Check if there are existing transformations
+          if (rest.includes("/")) {
+            // Add fl_attachment before the version/folder
+            const pathParts = rest.split("/");
+            // Insert fl_attachment as first transformation
+            pathParts[0] = `fl_attachment/${pathParts[0]}`;
+            return `${base}/upload/${pathParts.join("/")}`;
+          } else {
+            // No transformations, add fl_attachment
+            return `${base}/upload/fl_attachment/${rest}`;
+          }
+        }
       }
+      // Fallback: add as query parameter
+      const separator = normalized.includes("?") ? "&" : "?";
+      return `${normalized}${separator}fl_attachment`;
     }
     return normalized;
   }
@@ -242,7 +261,7 @@ export default function Applications() {
               ) : (
                 current.map((app) => {
                   const meta = STATUS_META[app.status] || STATUS_META.pending;
-                  const resumeHref = getResumeHref(app.resumeUrl);
+                  const resumeHref = getResumeHref(app.resumeUrl, app._id);
 
                   return (
                     <tr key={app._id}>
@@ -265,10 +284,15 @@ export default function Applications() {
                         {resumeHref ? (
                           <a 
                             className="ap-link" 
-                            href={resumeHref} 
-                            target="_blank" 
-                            rel="noreferrer noopener"
-                            download={getFileExtension(app.resumeUrl) ? `resume.${getFileExtension(app.resumeUrl)}` : undefined}
+                            href={resumeHref}
+                            download
+                            onClick={(e) => {
+                              // For Cloudinary URLs, ensure proper download
+                              if (app.resumeUrl && app.resumeUrl.includes("cloudinary.com")) {
+                                // Let the backend proxy handle it
+                                return true;
+                              }
+                            }}
                           >
                             Download
                           </a>

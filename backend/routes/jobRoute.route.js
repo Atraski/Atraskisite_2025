@@ -90,12 +90,66 @@ router.get("/:id/resume", async (req, res) => {
 
     const resumeUrl = app.resumeUrl;
     
-    // If it's a Cloudinary URL, redirect with fl_attachment
+    // If it's a Cloudinary URL, fetch and serve with proper download headers
     if (resumeUrl.includes("cloudinary.com") || resumeUrl.includes("res.cloudinary.com")) {
-      const downloadUrl = resumeUrl.includes("fl_attachment") 
-        ? resumeUrl 
-        : `${resumeUrl}${resumeUrl.includes("?") ? "&" : "?"}fl_attachment`;
-      return res.redirect(downloadUrl);
+      try {
+        // Format Cloudinary URL with fl_attachment transformation
+        let downloadUrl = resumeUrl;
+        
+        // Check if fl_attachment is already in the URL path
+        if (!resumeUrl.includes("fl_attachment")) {
+          // Insert fl_attachment transformation in the URL path
+          if (resumeUrl.includes("/upload/")) {
+            const parts = resumeUrl.split("/upload/");
+            if (parts.length === 2) {
+              const [base, rest] = parts;
+              // Check if there's a version number (v1234567890)
+              const versionMatch = rest.match(/^(v\d+\/)/);
+              if (versionMatch) {
+                // Insert fl_attachment after version
+                downloadUrl = `${base}/upload/${versionMatch[1]}fl_attachment/${rest.substring(versionMatch[1].length)}`;
+              } else {
+                // No version, insert fl_attachment at the start
+                downloadUrl = `${base}/upload/fl_attachment/${rest}`;
+              }
+            }
+          }
+        }
+        
+        // Fetch the file from Cloudinary
+        const https = require("https");
+        const http = require("http");
+        const url = require("url");
+        const fileUrl = new URL(downloadUrl);
+        const client = fileUrl.protocol === "https:" ? https : http;
+        
+        // Get filename from URL
+        const urlPath = fileUrl.pathname;
+        const fileName = urlPath.split("/").pop() || "resume.pdf";
+        
+        // Fetch and stream the file
+        client.get(downloadUrl, (fileRes) => {
+          if (fileRes.statusCode !== 200) {
+            return res.status(fileRes.statusCode).json({ error: "Failed to fetch file from Cloudinary" });
+          }
+          
+          // Set download headers
+          res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+          res.setHeader("Content-Type", fileRes.headers["content-type"] || "application/octet-stream");
+          
+          // Pipe the file to response
+          fileRes.pipe(res);
+        }).on("error", (err) => {
+          console.error("Error fetching from Cloudinary:", err);
+          res.status(500).json({ error: "Failed to download file" });
+        });
+        
+        return; // Don't continue to other handlers
+      } catch (err) {
+        console.error("Cloudinary download error:", err);
+        // Fallback to redirect
+        return res.redirect(resumeUrl);
+      }
     }
     
     // For local files, serve with download headers
